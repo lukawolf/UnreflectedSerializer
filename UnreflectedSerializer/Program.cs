@@ -141,7 +141,6 @@ namespace UnreflectedSerializer
             };
 
             rootDesc.Serialize(Console.Out, person);
-            Console.ReadLine();
         }
 
         static RootDescriptor<Person> GetPersonDescriptor()
