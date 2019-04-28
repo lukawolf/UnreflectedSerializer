@@ -4,20 +4,35 @@ using System.IO;
 
 namespace UnreflectedSerializer
 {
-    public class DescriptionField
+    public abstract class DescriptionField
     {
-        public string TagName { get; }
-        public Func<object, string> ValueGetter { get; }
+        public string TagName { get; protected set; }
+        public Func<object, string> ValueGetter { get; protected set; }
+    }
 
-        public DescriptionField(Func<object, string> valueGetter)
-        {
-            ValueGetter = valueGetter;
-        }
-
-        public DescriptionField(string tagName, Func<object, string> valueGetter)
+    public class StringDescriptionField : DescriptionField
+    {
+        public StringDescriptionField(string tagName, Func<object, string> valueGetter)
         {
             TagName = tagName;
             ValueGetter = valueGetter;
+        }
+    }
+
+    public class IntDescriptionField : DescriptionField
+    {
+        public IntDescriptionField(string tagName, Func<object, int> valueGetter)
+        {
+            TagName = tagName;
+            ValueGetter = (obj) => valueGetter(obj).ToString();
+        }
+    }
+
+    public class RootDescriptionField<T> : DescriptionField
+    {
+        public RootDescriptionField(string tagName, RootDescriptor<T> descriptor, Func<object, T> valueGetter)
+        {
+            ValueGetter = (obj) => descriptor.SerializeToString(valueGetter(obj), tagName);
         }
     }
 
@@ -132,36 +147,36 @@ namespace UnreflectedSerializer
         static RootDescriptor<Person> GetPersonDescriptor()
         {
             var rootDesc = new RootDescriptor<Person>("Person");
-            rootDesc.RegisterDescriptionField(new DescriptionField("FirstName", (person) => ((Person)person).FirstName));
-            rootDesc.RegisterDescriptionField(new DescriptionField("LastName", (person) => ((Person)person).LastName));
-            rootDesc.RegisterDescriptionField(new DescriptionField((person) => GetAddressDescriptor().SerializeToString(((Person)person).HomeAddress, "HomeAddress")));
-            rootDesc.RegisterDescriptionField(new DescriptionField((person) => GetAddressDescriptor().SerializeToString(((Person)person).WorkAddress, "WorkAddress")));
-            rootDesc.RegisterDescriptionField(new DescriptionField((person) => GetCountryDescriptor().SerializeToString(((Person)person).CitizenOf, "CitizenOf")));
-            rootDesc.RegisterDescriptionField(new DescriptionField((person) => GetPhoneNumberDescriptor().SerializeToString(((Person)person).MobilePhone, "MobilePhone")));
+            rootDesc.RegisterDescriptionField(new StringDescriptionField("FirstName", (person) => ((Person)person).FirstName));
+            rootDesc.RegisterDescriptionField(new StringDescriptionField("LastName", (person) => ((Person)person).LastName));
+            rootDesc.RegisterDescriptionField(new RootDescriptionField<Address>("HomeAddress", GetAddressDescriptor(), (person) => ((Person)person).HomeAddress));
+            rootDesc.RegisterDescriptionField(new RootDescriptionField<Address>("WorkAddress", GetAddressDescriptor(), (person) => ((Person)person).WorkAddress));
+            rootDesc.RegisterDescriptionField(new RootDescriptionField<Country>("CitizenOf", GetCountryDescriptor(), (person) => ((Person)person).CitizenOf));
+            rootDesc.RegisterDescriptionField(new RootDescriptionField<PhoneNumber>("MobilePhone", GetPhoneNumberDescriptor(), (person) => ((Person)person).MobilePhone));
             return rootDesc;
         }
 
         static RootDescriptor<Address> GetAddressDescriptor()
         {
             var rootDesc = new RootDescriptor<Address>("Address");
-            rootDesc.RegisterDescriptionField(new DescriptionField("Street", (address) => ((Address)address).Street));
-            rootDesc.RegisterDescriptionField(new DescriptionField("City", (address) => ((Address)address).City));
+            rootDesc.RegisterDescriptionField(new StringDescriptionField("Street", (address) => ((Address)address).Street));
+            rootDesc.RegisterDescriptionField(new StringDescriptionField("City", (address) => ((Address)address).City));
             return rootDesc;
         }
 
         static RootDescriptor<Country> GetCountryDescriptor()
         {
             var rootDesc = new RootDescriptor<Country>("Country");
-            rootDesc.RegisterDescriptionField(new DescriptionField("Name", (country) => ((Country)country).Name));
-            rootDesc.RegisterDescriptionField(new DescriptionField("AreaCode", (country) => ((Country)country).AreaCode.ToString()));
+            rootDesc.RegisterDescriptionField(new StringDescriptionField("Name", (country) => ((Country)country).Name));
+            rootDesc.RegisterDescriptionField(new IntDescriptionField("AreaCode", (country) => ((Country)country).AreaCode));
             return rootDesc;
         }
 
         static RootDescriptor<PhoneNumber> GetPhoneNumberDescriptor()
         {
             var rootDesc = new RootDescriptor<PhoneNumber>("PhoneNumber");
-            rootDesc.RegisterDescriptionField(new DescriptionField((phoneNumber) => GetCountryDescriptor().SerializeToString(((PhoneNumber)phoneNumber).Country, "Country")));
-            rootDesc.RegisterDescriptionField(new DescriptionField("Number", (phoneNumber) => ((PhoneNumber)phoneNumber).Number.ToString()));
+            rootDesc.RegisterDescriptionField(new RootDescriptionField<Country>("Country", GetCountryDescriptor(), (phoneNumber) => ((PhoneNumber)phoneNumber).Country));
+            rootDesc.RegisterDescriptionField(new IntDescriptionField("Number", (phoneNumber) => ((PhoneNumber)phoneNumber).Number));
             return rootDesc;
         }
     }
